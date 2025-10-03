@@ -1,0 +1,185 @@
+package services
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/zhakazx/cleanshort/config"
+	"github.com/zhakazx/cleanshort/models"
+	"github.com/zhakazx/cleanshort/utils"
+	"gorm.io/gorm"
+)
+
+type AuthService struct {
+	db  *gorm.DB
+	cfg *config.Config
+}
+
+func NewAuthService(db *gorm.DB, cfg *config.Config) *AuthService {
+	return &AuthService{
+		db:  db,
+		cfg: cfg,
+	}
+}
+
+// Register creates a new user account
+func (s *AuthService) Register(req *models.UserRegisterRequest) (*models.UserResponse, error) {
+	// Normalize email
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	// Check if user already exists
+	var existingUser models.User
+	if err := s.db.Where("email = ?", email).First(&existingUser).Error; err == nil {
+		return nil, errors.New("email already in use")
+	} else if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
+	}
+
+	// Hash password
+	hashedPassword, err := utils.HashPassword(req.Password)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create user
+	user := models.User{
+		Email:    email,
+		Password: hashedPassword,
+	}
+
+	if err := s.db.Create(&user).Error; err != nil {
+		return nil, err
+	}
+
+	return &models.UserResponse{
+		ID:        user.ID,
+		Email:     user.Email,
+		CreatedAt: user.CreatedAt,
+	}, nil
+}
+
+// Login authenticates a user and returns tokens
+func (s *AuthService) Login(req *models.UserLoginRequest) (*models.AuthResponse, error) {
+	// Normalize email
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+
+	// Find user
+	var user models.User
+	if err := s.db.Where("email = ?", email).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("invalid credentials")
+		}
+		return nil, err
+	}
+
+	// Check password
+	if !utils.CheckPassword(req.Password, user.Password) {
+		return nil, errors.New("invalid credentials")
+	}
+
+	// Generate tokens
+	accessToken, err := utils.GenerateAccessToken(user.ID, user.Email, s.cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := utils.GenerateRefreshToken()
+	if err != nil {
+		return nil, err
+	}
+
+	// Hash refresh token for storage
+	hasher := sha256.New()
+	hasher.Write([]byte(refreshToken))
+	tokenHash := hex.EncodeToString(hasher.Sum(nil))
+
+	// Store refresh token
+	refreshTokenModel := models.RefreshToken{
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: time.Now().Add(s.cfg.JWTRefreshTTL),
+	}
+
+	if err := s.db.Create(&refreshTokenModel).Error; err != nil {
+		return nil, err
+	}
+
+	return &models.AuthResponse{
+		AccessToken:        accessToken,
+		ExpiresIn:         int64(s.cfg.JWTAccessTTL.Seconds()),
+		RefreshToken:       refreshToken,
+		RefreshExpiresIn:  int64(s.cfg.JWTRefreshTTL.Seconds()),
+	}, nil
+}
+
+// RefreshToken generates a new access token using a refresh token
+func (s *AuthService) RefreshToken(req *models.RefreshTokenRequest) (*models.TokenRefreshResponse, error) {
+	// Hash the provided refresh token
+	hasher := sha256.New()
+	hasher.Write([]byte(req.RefreshToken))
+	tokenHash := hex.EncodeToString(hasher.Sum(nil))
+
+	// Find refresh token
+	var refreshToken models.RefreshToken
+	if err := s.db.Where("token_hash = ?", tokenHash).Preload("User").First(&refreshToken).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("invalid refresh token")
+		}
+		return nil, err
+	}
+
+	// Check if token is valid
+	if !refreshToken.IsValid() {
+		return nil, errors.New("refresh token is expired or revoked")
+	}
+
+	// Generate new access token
+	accessToken, err := utils.GenerateAccessToken(refreshToken.User.ID, refreshToken.User.Email, s.cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	return &models.TokenRefreshResponse{
+		AccessToken: accessToken,
+		ExpiresIn:   int64(s.cfg.JWTAccessTTL.Seconds()),
+	}, nil
+}
+
+// Logout revokes a refresh token
+func (s *AuthService) Logout(refreshTokenString string) error {
+	// Hash the provided refresh token
+	hasher := sha256.New()
+	hasher.Write([]byte(refreshTokenString))
+	tokenHash := hex.EncodeToString(hasher.Sum(nil))
+
+	// Find and revoke refresh token
+	result := s.db.Model(&models.RefreshToken{}).
+		Where("token_hash = ?", tokenHash).
+		Update("revoked", true)
+
+	if result.Error != nil {
+		return result.Error
+	}
+
+	if result.RowsAffected == 0 {
+		return errors.New("refresh token not found")
+	}
+
+	return nil
+}
+
+// RevokeAllUserTokens revokes all refresh tokens for a user
+func (s *AuthService) RevokeAllUserTokens(userID uuid.UUID) error {
+	return s.db.Model(&models.RefreshToken{}).
+		Where("user_id = ?", userID).
+		Update("revoked", true).Error
+}
+
+// CleanupExpiredTokens removes expired refresh tokens from the database
+func (s *AuthService) CleanupExpiredTokens() error {
+	return s.db.Where("expires_at < ?", time.Now()).Delete(&models.RefreshToken{}).Error
+}
