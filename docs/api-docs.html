@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CleanShort API Documentation</title>
+    <link rel="stylesheet" type="text/css" href="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui.css" />
+    <style>
+        html {
+            box-sizing: border-box;
+            overflow: -moz-scrollbars-vertical;
+            overflow-y: scroll;
+        }
+        *, *:before, *:after {
+            box-sizing: inherit;
+        }
+        body {
+            margin: 0;
+            background: #fafafa;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+        .header {
+            background: #1f2937;
+            color: white;
+            padding: 1rem 2rem;
+            margin-bottom: 2rem;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        .header p {
+            margin: 0.5rem 0 0 0;
+            opacity: 0.8;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 1rem;
+        }
+        .quick-links {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .quick-links h2 {
+            margin-top: 0;
+            color: #1f2937;
+        }
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        .link-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 1rem;
+            text-decoration: none;
+            color: #1f2937;
+            transition: all 0.2s;
+        }
+        .link-card:hover {
+            background: #e2e8f0;
+            transform: translateY(-1px);
+        }
+        .link-card h3 {
+            margin: 0 0 0.5rem 0;
+            font-size: 1rem;
+            font-weight: 600;
+        }
+        .link-card p {
+            margin: 0;
+            font-size: 0.875rem;
+            opacity: 0.7;
+        }
+        #swagger-ui {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>CleanShort API Documentation</h1>
+            <p>REST API service for creating and managing custom short links with user authentication</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="quick-links">
+            <h2>Quick Links</h2>
+            <div class="links-grid">
+                <a href="#/Authentication" class="link-card">
+                    <h3>🔐 Authentication</h3>
+                    <p>User registration, login, and token management</p>
+                </a>
+                <a href="#/Links" class="link-card">
+                    <h3>🔗 Links Management</h3>
+                    <p>Create, read, update, and delete short links</p>
+                </a>
+                <a href="#/Redirect" class="link-card">
+                    <h3>↗️ Public Redirect</h3>
+                    <p>Public endpoint for URL redirection</p>
+                </a>
+                <a href="#/Health" class="link-card">
+                    <h3>❤️ Health Checks</h3>
+                    <p>Application health and readiness endpoints</p>
+                </a>
+                <a href="./postman_collection.json" class="link-card" download>
+                    <h3>📋 Postman Collection</h3>
+                    <p>Download collection for API testing</p>
+                </a>
+                <a href="./openapi.yaml" class="link-card" download>
+                    <h3>📄 OpenAPI Spec</h3>
+                    <p>Download OpenAPI 3.1 specification</p>
+                </a>
+            </div>
+        </div>
+
+        <div id="swagger-ui"></div>
+    </div>
+
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5.10.3/swagger-ui-standalone-preset.js"></script>
+    <script>
+        window.onload = function() {
+            // Begin Swagger UI call region
+            const ui = SwaggerUIBundle({
+                url: './openapi.yaml',
+                dom_id: '#swagger-ui',
+                deepLinking: true,
+                presets: [
+                    SwaggerUIBundle.presets.apis,
+                    SwaggerUIStandalonePreset
+                ],
+                plugins: [
+                    SwaggerUIBundle.plugins.DownloadUrl
+                ],
+                layout: "StandaloneLayout",
+                tryItOutEnabled: true,
+                requestInterceptor: function(request) {
+                    // Add any request modifications here
+                    return request;
+                },
+                responseInterceptor: function(response) {
+                    // Add any response modifications here
+                    return response;
+                },
+                onComplete: function() {
+                    console.log('Swagger UI loaded successfully');
+                },
+                onFailure: function(error) {
+                    console.error('Failed to load Swagger UI:', error);
+                }
+            });
+            // End Swagger UI call region
+
+            window.ui = ui;
+        };
+    </script>
+</body>
+</html>

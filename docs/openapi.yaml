@@ -1,0 +1,837 @@
+openapi: 3.1.0
+info:
+  title: CleanShort URL Shortener API
+  description: |
+    A REST API service for creating and managing custom short links with user authentication.
+    
+    ## Features
+    - User registration and JWT-based authentication
+    - Create, read, update, and delete short links
+    - Public redirect functionality with click tracking
+    - Rate limiting for security
+    - Input validation and comprehensive error handling
+    
+    ## Authentication
+    Most endpoints require authentication via JWT Bearer token in the Authorization header:
+    ```
+    Authorization: Bearer <access_token>
+    ```
+    
+    ## Rate Limiting
+    - Authentication endpoints: 5 requests per minute per IP
+    - Redirect endpoint: 200 requests per minute per IP
+    
+    Rate limit headers are included in responses:
+    - `X-RateLimit-Limit`: Request limit
+    - `X-RateLimit-Remaining`: Remaining requests
+    - `X-RateLimit-Reset`: Reset timestamp
+  version: 1.0.0
+  contact:
+    name: CleanShort API Support
+    email: support@cleanshort.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Development server
+  - url: https://api.cleanshort.com
+    description: Production server
+
+security:
+  - BearerAuth: []
+  - {}
+
+paths:
+  /healthz:
+    get:
+      summary: Health check (liveness)
+      description: Returns the health status of the application
+      operationId: healthCheck
+      security: []
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Application is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /readyz:
+    get:
+      summary: Readiness check
+      description: Returns the readiness status including database connectivity
+      operationId: readinessCheck
+      security: []
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Application is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ready
+        '503':
+          description: Application is not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: not ready
+                  error:
+                    type: string
+                    example: database connection failed
+
+  /api/v1/auth/register:
+    post:
+      summary: Register a new user
+      description: Creates a new user account with email and password
+      operationId: registerUser
+      security: []
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegisterRequest'
+            examples:
+              valid_user:
+                summary: Valid user registration
+                value:
+                  email: user@example.com
+                  password: StrongP@ssw0rd
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Request limit per minute
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Remaining requests
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: Reset timestamp
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/login:
+    post:
+      summary: Authenticate user
+      description: Authenticates a user and returns access and refresh tokens
+      operationId: loginUser
+      security: []
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLoginRequest'
+            examples:
+              valid_login:
+                summary: Valid login credentials
+                value:
+                  email: user@example.com
+                  password: StrongP@ssw0rd
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/refresh:
+    post:
+      summary: Refresh access token
+      description: Generates a new access token using a valid refresh token
+      operationId: refreshToken
+      security: []
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+            examples:
+              valid_refresh:
+                summary: Valid refresh token
+                value:
+                  refresh_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefreshResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/auth/logout:
+    post:
+      summary: Logout user
+      description: Revokes the provided refresh token
+      operationId: logoutUser
+      security: []
+      tags:
+        - Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '204':
+          description: Logout successful
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Refresh token not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/links:
+    post:
+      summary: Create a new short link
+      description: Creates a new short link for the authenticated user
+      operationId: createLink
+      tags:
+        - Links
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkCreateRequest'
+            examples:
+              with_custom_code:
+                summary: Link with custom short code
+                value:
+                  target_url: https://example.com/article/123
+                  short_code: my-article-123
+                  title: Favorite Article
+                  is_active: true
+              auto_generated:
+                summary: Link with auto-generated code
+                value:
+                  target_url: https://example.com/page
+                  title: Example Page
+      responses:
+        '201':
+          description: Link created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Short code already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: List user's links
+      description: Retrieves a paginated list of links for the authenticated user
+      operationId: listLinks
+      tags:
+        - Links
+      parameters:
+        - name: limit
+          in: query
+          description: Number of results to return (1-100)
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: query
+          in: query
+          description: Search term for short_code and title
+          required: false
+          schema:
+            type: string
+        - name: active
+          in: query
+          description: Filter by active status
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Links retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkListResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/links/{id}:
+    get:
+      summary: Get a specific link
+      description: Retrieves details of a specific link owned by the authenticated user
+      operationId: getLink
+      tags:
+        - Links
+      parameters:
+        - name: id
+          in: path
+          description: Link ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Link retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkResponse'
+        '400':
+          description: Invalid link ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    patch:
+      summary: Update a link
+      description: Updates a specific link owned by the authenticated user
+      operationId: updateLink
+      tags:
+        - Links
+      parameters:
+        - name: id
+          in: path
+          description: Link ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkUpdateRequest'
+            examples:
+              update_title:
+                summary: Update title only
+                value:
+                  title: Updated Title
+              deactivate_link:
+                summary: Deactivate link
+                value:
+                  is_active: false
+              update_url:
+                summary: Update target URL
+                value:
+                  target_url: https://example.com/new-url
+      responses:
+        '200':
+          description: Link updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete a link
+      description: Deletes a specific link owned by the authenticated user
+      operationId: deleteLink
+      tags:
+        - Links
+      parameters:
+        - name: id
+          in: path
+          description: Link ID (UUID)
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Link deleted successfully
+        '400':
+          description: Invalid link ID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Link not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /{shortCode}:
+    get:
+      summary: Redirect to target URL
+      description: |
+        Public endpoint that redirects to the target URL of an active short link.
+        Increments click count and updates last clicked timestamp.
+      operationId: redirectLink
+      security: []
+      tags:
+        - Redirect
+      parameters:
+        - name: shortCode
+          in: path
+          description: Short code of the link
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-zA-Z0-9_-]{4,32}$'
+            example: my-article-123
+      responses:
+        '302':
+          description: Redirect to target URL
+          headers:
+            Location:
+              schema:
+                type: string
+                format: uri
+              description: Target URL to redirect to
+        '404':
+          description: Short link not found or inactive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              schema:
+                type: integer
+              description: Request limit per minute
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Remaining requests
+            X-RateLimit-Reset:
+              schema:
+                type: integer
+              description: Reset timestamp
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT access token obtained from login endpoint
+
+  schemas:
+    UserRegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address (will be normalized to lowercase)
+          example: user@example.com
+        password:
+          type: string
+          minLength: 8
+          description: User's password (minimum 8 characters)
+          example: StrongP@ssw0rd
+
+    UserLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: user@example.com
+        password:
+          type: string
+          description: User's password
+          example: StrongP@ssw0rd
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: User's unique identifier
+          example: 123e4567-e89b-12d3-a456-426614174000
+        email:
+          type: string
+          format: email
+          description: User's email address
+          example: user@example.com
+        created_at:
+          type: string
+          format: date-time
+          description: User creation timestamp
+          example: 2024-01-01T00:00:00Z
+
+    AuthResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: JWT access token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expires_in:
+          type: integer
+          description: Access token expiration time in seconds
+          example: 900
+        refresh_token:
+          type: string
+          description: Opaque refresh token
+          example: abc123def456ghi789jkl012mno345pqr678
+        refresh_expires_in:
+          type: integer
+          description: Refresh token expiration time in seconds
+          example: 604800
+
+    TokenRefreshResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+          description: New JWT access token
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expires_in:
+          type: integer
+          description: Access token expiration time in seconds
+          example: 900
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refresh_token
+      properties:
+        refresh_token:
+          type: string
+          description: Refresh token to use
+          example: abc123def456ghi789jkl012mno345pqr678
+
+    LinkCreateRequest:
+      type: object
+      required:
+        - target_url
+      properties:
+        target_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: Target URL to redirect to (must be http/https)
+          example: https://example.com/article/123
+        short_code:
+          type: string
+          pattern: '^[a-zA-Z0-9_-]{4,32}$'
+          minLength: 4
+          maxLength: 32
+          description: Custom short code (optional, auto-generated if not provided)
+          example: my-article-123
+        title:
+          type: string
+          description: Optional title for the link
+          example: Favorite Article
+        is_active:
+          type: boolean
+          description: Whether the link is active
+          default: true
+          example: true
+
+    LinkUpdateRequest:
+      type: object
+      properties:
+        target_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          description: New target URL
+          example: https://example.com/new-url
+        title:
+          type: string
+          description: New title for the link
+          example: Updated Title
+        is_active:
+          type: boolean
+          description: New active status
+          example: false
+
+    LinkResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Link's unique identifier
+          example: 123e4567-e89b-12d3-a456-426614174000
+        short_code:
+          type: string
+          description: Short code for the link
+          example: my-article-123
+        short_url:
+          type: string
+          format: uri
+          description: Complete short URL
+          example: http://localhost:8080/my-article-123
+        target_url:
+          type: string
+          format: uri
+          description: Target URL to redirect to
+          example: https://example.com/article/123
+        title:
+          type: string
+          nullable: true
+          description: Link title
+          example: Favorite Article
+        is_active:
+          type: boolean
+          description: Whether the link is active
+          example: true
+        click_count:
+          type: integer
+          format: int64
+          description: Number of times the link has been clicked
+          example: 42
+        last_clicked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Timestamp of last click
+          example: 2024-01-01T12:00:00Z
+        created_at:
+          type: string
+          format: date-time
+          description: Link creation timestamp
+          example: 2024-01-01T00:00:00Z
+        updated_at:
+          type: string
+          format: date-time
+          description: Link last update timestamp
+          example: 2024-01-01T00:00:00Z
+
+    LinkListResponse:
+      type: object
+      properties:
+        links:
+          type: array
+          items:
+            $ref: '#/components/schemas/LinkResponse'
+          description: Array of links
+        total:
+          type: integer
+          format: int64
+          description: Total number of links matching the query
+          example: 42
+        limit:
+          type: integer
+          description: Number of results per page
+          example: 20
+        offset:
+          type: integer
+          description: Number of results skipped
+          example: 0
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              description: Error code
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - FORBIDDEN
+                - CONFLICT
+                - LINK_NOT_FOUND
+                - TOO_MANY_REQUESTS
+                - INTERNAL_ERROR
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              description: Human-readable error message
+              example: Invalid request body
+            request_id:
+              type: string
+              description: Unique request identifier for debugging
+              example: req_abc123
+
+tags:
+  - name: Health
+    description: Health and readiness checks
+  - name: Authentication
+    description: User authentication and token management
+  - name: Links
+    description: Short link management operations
+  - name: Redirect
+    description: Public redirect functionality
