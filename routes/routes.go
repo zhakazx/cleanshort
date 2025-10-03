@@ -18,6 +18,11 @@ func Setup(app *fiber.App, db *gorm.DB, cfg *config.Config) {
 	authController := controllers.NewAuthController(authService)
 	linkController := controllers.NewLinkController(linkService)
 
+	app.Static("/docs", "./docs")
+	app.Get("/docs", func(c *fiber.Ctx) error {
+		return c.Redirect("/docs/api-docs.html")
+	})
+
 	app.Get("/:shortCode",
 		middleware.RedirectRateLimitMiddleware(cfg.RateLimitRedirect),
 		linkController.RedirectLink,
