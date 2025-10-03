@@ -10,7 +10,6 @@
 # Environtment
 .env
 prd.md
-/docs/
 
 # OS / IDE
 .DS_Store
