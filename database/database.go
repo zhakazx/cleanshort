@@ -49,7 +49,6 @@ func Migrate(db *gorm.DB) error {
 		return err
 	}
 
-	// Create additional indexes
 	if err := createIndexes(db); err != nil {
 		return err
 	}

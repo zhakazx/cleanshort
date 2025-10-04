@@ -15,7 +15,6 @@ type RefreshToken struct {
 	ExpiresAt time.Time `json:"expires_at" gorm:"not null"`
 	CreatedAt time.Time `json:"created_at" gorm:"not null;default:now()"`
 
-	// Relationships
 	User User `json:"user,omitempty" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
 
@@ -37,7 +36,6 @@ func (rt *RefreshToken) IsValid() bool {
 	return !rt.Revoked && !rt.IsExpired()
 }
 
-// RefreshTokenRequest represents the request payload for token refresh
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }

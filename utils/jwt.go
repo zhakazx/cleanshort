@@ -11,7 +11,6 @@ import (
 	"github.com/zhakazx/cleanshort/middleware"
 )
 
-// GenerateAccessToken generates a JWT access token for a user
 func GenerateAccessToken(userID uuid.UUID, email string, cfg *config.Config) (string, error) {
 	claims := middleware.JWTClaims{
 		UserID: userID.String(),
@@ -27,7 +26,6 @@ func GenerateAccessToken(userID uuid.UUID, email string, cfg *config.Config) (st
 	return token.SignedString([]byte(cfg.JWTSecret))
 }
 
-// GenerateRefreshToken generates a random refresh token
 func GenerateRefreshToken() (string, error) {
 	bytes := make([]byte, 32)
 	if _, err := rand.Read(bytes); err != nil {
@@ -36,7 +34,6 @@ func GenerateRefreshToken() (string, error) {
 	return base64.URLEncoding.EncodeToString(bytes), nil
 }
 
-// ValidateAccessToken validates and parses a JWT access token
 func ValidateAccessToken(tokenString string, cfg *config.Config) (*middleware.JWTClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &middleware.JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

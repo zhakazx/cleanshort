@@ -32,7 +32,6 @@ type Config struct {
 }
 
 func Load() *Config {
-	// Load .env file if it exists
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables")
 	}
@@ -50,7 +49,6 @@ func Load() *Config {
 		LogLevel:          getEnv("LOG_LEVEL", "info"),
 	}
 
-	// Validate required fields
 	if cfg.JWTSecret == "super-secret-change-in-production" && cfg.Environment == "production" {
 		log.Fatal("JWT_SECRET must be set in production")
 	}

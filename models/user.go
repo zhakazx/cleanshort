@@ -14,7 +14,6 @@ type User struct {
 	CreatedAt time.Time `json:"created_at" gorm:"not null;default:now()"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"not null;default:now()"`
 
-	// Relationships
 	Links         []Link         `json:"links,omitempty" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 	RefreshTokens []RefreshToken `json:"-" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
@@ -27,19 +26,16 @@ func (u *User) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// UserRegisterRequest represents the request payload for user registration
 type UserRegisterRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required,min=8"`
 }
 
-// UserLoginRequest represents the request payload for user login
 type UserLoginRequest struct {
 	Email    string `json:"email" validate:"required,email"`
 	Password string `json:"password" validate:"required"`
 }
 
-// UserResponse represents the response payload for user operations
 type UserResponse struct {
 	ID        uuid.UUID `json:"id"`
 	Email     string    `json:"email"`

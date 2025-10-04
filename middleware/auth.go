@@ -10,17 +10,14 @@ import (
 	"github.com/zhakazx/cleanshort/models"
 )
 
-// JWTClaims represents the JWT claims structure
 type JWTClaims struct {
 	UserID string `json:"sub"`
 	Email  string `json:"email"`
 	jwt.RegisteredClaims
 }
 
-// AuthMiddleware validates JWT tokens and sets user context
 func AuthMiddleware(cfg *config.Config) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		// Get Authorization header
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
 			return c.Status(fiber.StatusUnauthorized).JSON(models.ErrorResponse{
@@ -32,7 +29,6 @@ func AuthMiddleware(cfg *config.Config) fiber.Handler {
 			})
 		}
 
-		// Check if header starts with "Bearer "
 		if !strings.HasPrefix(authHeader, "Bearer ") {
 			return c.Status(fiber.StatusUnauthorized).JSON(models.ErrorResponse{
 				Error: models.ErrorDetail{
@@ -43,12 +39,9 @@ func AuthMiddleware(cfg *config.Config) fiber.Handler {
 			})
 		}
 
-		// Extract token
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
-		// Parse and validate token
 		token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-			// Validate signing method
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fiber.NewError(fiber.StatusUnauthorized, "Invalid signing method")
 			}
@@ -65,7 +58,6 @@ func AuthMiddleware(cfg *config.Config) fiber.Handler {
 			})
 		}
 
-		// Extract claims
 		claims, ok := token.Claims.(*JWTClaims)
 		if !ok || !token.Valid {
 			return c.Status(fiber.StatusUnauthorized).JSON(models.ErrorResponse{

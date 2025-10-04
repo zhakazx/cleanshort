@@ -17,7 +17,6 @@ func ValidateStruct(s interface{}) error {
 	return validate.Struct(s)
 }
 
-// HandleValidationError converts validation errors to API error response
 func HandleValidationError(c *fiber.Ctx, err error) error {
 	if validationErrors, ok := err.(validator.ValidationErrors); ok {
 		var errorMessages []string

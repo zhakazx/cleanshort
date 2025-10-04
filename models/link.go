@@ -19,7 +19,6 @@ type Link struct {
 	CreatedAt     time.Time  `json:"created_at" gorm:"not null;default:now()"`
 	UpdatedAt     time.Time  `json:"updated_at" gorm:"not null;default:now()"`
 
-	// Relationships
 	User User `json:"user,omitempty" gorm:"foreignKey:UserID;constraint:OnDelete:CASCADE"`
 }
 
@@ -31,7 +30,6 @@ func (l *Link) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
-// LinkCreateRequest represents the request payload for creating a link
 type LinkCreateRequest struct {
 	TargetURL string  `json:"target_url" validate:"required,url,max=2048"`
 	ShortCode *string `json:"short_code,omitempty" validate:"omitempty,min=4,max=32,alphanum"`
@@ -39,14 +37,12 @@ type LinkCreateRequest struct {
 	IsActive  *bool   `json:"is_active,omitempty"`
 }
 
-// LinkUpdateRequest represents the request payload for updating a link
 type LinkUpdateRequest struct {
 	TargetURL *string `json:"target_url,omitempty" validate:"omitempty,url,max=2048"`
 	Title     *string `json:"title,omitempty"`
 	IsActive  *bool   `json:"is_active,omitempty"`
 }
 
-// LinkResponse represents the response payload for link operations
 type LinkResponse struct {
 	ID            uuid.UUID  `json:"id"`
 	ShortCode     string     `json:"short_code"`
@@ -60,7 +56,6 @@ type LinkResponse struct {
 	UpdatedAt     time.Time  `json:"updated_at"`
 }
 
-// LinkListResponse represents the response payload for listing links
 type LinkListResponse struct {
 	Links []LinkResponse `json:"links"`
 	Total int64          `json:"total"`
