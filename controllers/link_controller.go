@@ -236,10 +236,11 @@ func (lc *LinkController) ListLinks(c *fiber.Ctx) error {
 
 	var active *bool
 	if activeStr != "" {
-		if activeStr == "true" {
+		switch activeStr {
+		case "true":
 			activeVal := true
 			active = &activeVal
-		} else if activeStr == "false" {
+		case "false":
 			activeVal := false
 			active = &activeVal
 		}

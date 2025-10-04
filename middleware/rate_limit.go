@@ -104,7 +104,7 @@ func RateLimitMiddleware(limit int, window time.Duration) fiber.Handler {
 			return c.Status(fiber.StatusTooManyRequests).JSON(models.ErrorResponse{
 				Error: models.ErrorDetail{
 					Code:      "TOO_MANY_REQUESTS",
-					Message:   fmt.Sprintf("Rate limit exceeded. Try again after %v", resetTime.Sub(time.Now()).Round(time.Second)),
+					Message:   fmt.Sprintf("Rate limit exceeded. Try again after %v", time.Until(resetTime).Round(time.Second)),
 					RequestID: c.Locals("requestid").(string),
 				},
 			})
