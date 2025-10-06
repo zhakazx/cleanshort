@@ -371,6 +371,22 @@ paths:
           required: false
           schema:
             type: boolean
+        - name: sort_by
+          in: query
+          description: Field to sort by
+          required: false
+          schema:
+            type: string
+            enum: [created_at, updated_at, title, short_code, click_count, last_clicked_at]
+            default: created_at
+        - name: order_by
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
       responses:
         '200':
           description: Links retrieved successfully

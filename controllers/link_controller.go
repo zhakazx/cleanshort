@@ -223,6 +223,8 @@ func (lc *LinkController) ListLinks(c *fiber.Ctx) error {
 	offsetStr := c.Query("offset", "0")
 	query := c.Query("query", "")
 	activeStr := c.Query("active", "")
+	sortBy := c.Query("sort_by", "created_at")
+	orderBy := c.Query("order_by", "desc")
 
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit < 1 || limit > 100 {
@@ -246,7 +248,38 @@ func (lc *LinkController) ListLinks(c *fiber.Ctx) error {
 		}
 	}
 
-	links, err := lc.linkService.ListLinks(userID, limit, offset, query, active)
+	// Validate sort_by parameter
+	validSortFields := map[string]bool{
+		"created_at":       true,
+		"updated_at":       true,
+		"title":           true,
+		"short_code":      true,
+		"click_count":     true,
+		"last_clicked_at": true,
+	}
+
+	if !validSortFields[sortBy] {
+		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{
+			Error: models.ErrorDetail{
+				Code:      "VALIDATION_ERROR",
+				Message:   "Invalid sort_by field. Allowed values: created_at, updated_at, title, short_code, click_count, last_clicked_at",
+				RequestID: c.Locals("requestid").(string),
+			},
+		})
+	}
+
+	// Validate order_by parameter
+	if orderBy != "asc" && orderBy != "desc" {
+		return c.Status(fiber.StatusBadRequest).JSON(models.ErrorResponse{
+			Error: models.ErrorDetail{
+				Code:      "VALIDATION_ERROR",
+				Message:   "Invalid order_by value. Allowed values: asc, desc",
+				RequestID: c.Locals("requestid").(string),
+			},
+		})
+	}
+
+	links, err := lc.linkService.ListLinks(userID, limit, offset, query, active, sortBy, orderBy)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(models.ErrorResponse{
 			Error: models.ErrorDetail{

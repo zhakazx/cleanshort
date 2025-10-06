@@ -147,7 +147,7 @@ func (s *LinkService) DeleteLink(userID, linkID uuid.UUID) error {
 	return nil
 }
 
-func (s *LinkService) ListLinks(userID uuid.UUID, limit, offset int, query string, active *bool) (*models.LinkListResponse, error) {
+func (s *LinkService) ListLinks(userID uuid.UUID, limit, offset int, query string, active *bool, sortBy, orderBy string) (*models.LinkListResponse, error) {
 	var links []models.Link
 	var total int64
 
@@ -166,7 +166,19 @@ func (s *LinkService) ListLinks(userID uuid.UUID, limit, offset int, query strin
 		return nil, err
 	}
 
-	if err := db.Order("created_at DESC").Limit(limit).Offset(offset).Find(&links).Error; err != nil {
+	// Build the order clause
+	orderClause := fmt.Sprintf("%s %s", sortBy, strings.ToUpper(orderBy))
+	
+	// Handle special case for last_clicked_at to handle NULL values properly
+	if sortBy == "last_clicked_at" {
+		if orderBy == "desc" {
+			orderClause = "last_clicked_at DESC NULLS LAST"
+		} else {
+			orderClause = "last_clicked_at ASC NULLS LAST"
+		}
+	}
+
+	if err := db.Order(orderClause).Limit(limit).Offset(offset).Find(&links).Error; err != nil {
 		return nil, err
 	}
 
